@@ -7,7 +7,9 @@ import android.os.Bundle
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -42,6 +44,7 @@ import com.giwayume.quickscreenoffwhenpowerpluggedin.ui.theme.QuickScreenOffWhen
 @OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : ComponentActivity() {
     private val needsToRequestAdminPermission = MutableLiveData(false)
+    private val needsToRequestSettingsPermission = MutableLiveData(false)
     private val isPowerScreenLockServiceRunning = MutableLiveData(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -82,32 +85,66 @@ class MainActivity : ComponentActivity() {
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     val needsAdmin = needsToRequestAdminPermission.observeAsState()
-                    if (needsAdmin.value == true) {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.errorContainer
-                            )
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(18.dp, 14.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                    val needsSettings = needsToRequestSettingsPermission.observeAsState()
+                    if (needsAdmin.value == true || needsSettings.value == true) {
+                        if (needsAdmin.value == true) {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer
+                                )
                             ) {
-                                Text("Administrator permissions are required in order to allow this app to keep your screen off when plugging the phone in to power turns the screen on.")
                                 Column(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalAlignment = Alignment.CenterHorizontally
+                                    modifier = Modifier.padding(18.dp, 14.dp),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
-                                    Button(
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = MaterialTheme.colorScheme.error,
-                                            contentColor = MaterialTheme.colorScheme.errorContainer
-                                        ),
-                                        onClick = {
-                                            requestAdminPermission()
-                                        }
+                                    Text("Administrator permissions are required in order to allow this app to turn your screen off when plugging the phone in to power turns the screen on.")
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalAlignment = Alignment.CenterHorizontally
                                     ) {
-                                        Text("Request Administrator Permission")
+                                        Button(
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = MaterialTheme.colorScheme.error,
+                                                contentColor = MaterialTheme.colorScheme.errorContainer
+                                            ),
+                                            onClick = {
+                                                requestAdminPermission()
+                                            }
+                                        ) {
+                                            Text("Request Administrator Permission")
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if (needsSettings.value == true) {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer
+                                )
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(18.dp, 14.dp),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Text("Permission to write to system settings is required to control screen brightness.")
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Button(
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = MaterialTheme.colorScheme.error,
+                                                contentColor = MaterialTheme.colorScheme.errorContainer
+                                            ),
+                                            onClick = {
+                                                requestSettingsPermission()
+                                            }
+                                        ) {
+                                            Text("Request Write Settings Permission")
+                                        }
                                     }
                                 }
                             }
@@ -182,6 +219,7 @@ class MainActivity : ComponentActivity() {
 
     private fun updateOutsideAppState() {
         needsToRequestAdminPermission.value = queryRequestAdminPermission()
+        needsToRequestSettingsPermission.value = queryRequestSettingsPermission()
         isPowerScreenLockServiceRunning.value = queryPowerScreenLockServiceRunning()
     }
 
@@ -189,6 +227,11 @@ class MainActivity : ComponentActivity() {
         val devicePolicyManager = getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
         val componentName = ComponentName(this, DeviceAdminReceiver::class.java)
         return !devicePolicyManager.isAdminActive(componentName)
+    }
+
+    private fun queryRequestSettingsPermission(): Boolean {
+        val context = this@MainActivity
+        return !Settings.System.canWrite(context)
     }
 
     @Suppress("DEPRECATION") // Deprecated for third party services.
@@ -223,6 +266,15 @@ class MainActivity : ComponentActivity() {
                 DevicePolicyManager.EXTRA_ADD_EXPLANATION,
                 "Enable Device Admin to manage screen lock."
             )
+            context.startActivity(intent)
+        }
+    }
+
+    private fun requestSettingsPermission() {
+        val context = this@MainActivity
+        if (!Settings.System.canWrite(context)) {
+            val intent = Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS)
+            intent.data = Uri.parse("package:${context.packageName}")
             context.startActivity(intent)
         }
     }
