@@ -33,11 +33,13 @@ class PowerScreenLockService: Service() {
     private var powerEventTimestamp: Long = 0L
     private var screenOnEventTimestamp: Long = 1L
     private var screenOffEventTimestamp: Long = 0L
+    private var automatedLockTimestamp: Long = 0L
 
     private val lockHandler = Handler(Looper.getMainLooper())
     private val lockRunnable = Runnable {
         val screenOnOffset = abs(powerEventTimestamp - screenOnEventTimestamp)
         if (screenOnOffset < 250L) {
+            automatedLockTimestamp = System.currentTimeMillis()
             devicePolicyManager.lockNow()
             setSystemScreenBrightness(1)
         } else {
@@ -115,6 +117,14 @@ class PowerScreenLockService: Service() {
                             lastKnownUserBrightness = currentScreenBrightness
                         }
                         setSystemScreenBrightness(1)
+                    }
+                }
+
+                if (intent?.action == Intent.ACTION_SCREEN_OFF) {
+                    val currentScreenBrightness = getSystemScreenBrightness()
+                    val automatedLockOffset = abs(screenOffEventTimestamp - automatedLockTimestamp)
+                    if (currentScreenBrightness > 1 || automatedLockOffset > 1500) {
+                        lastKnownUserBrightness = currentScreenBrightness
                     }
                 }
 
