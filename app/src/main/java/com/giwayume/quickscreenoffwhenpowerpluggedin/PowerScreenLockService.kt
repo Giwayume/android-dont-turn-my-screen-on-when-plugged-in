@@ -42,8 +42,6 @@ class PowerScreenLockService: Service() {
             automatedLockTimestamp = System.currentTimeMillis()
             devicePolicyManager.lockNow()
             setSystemScreenBrightness(1)
-        } else {
-            setSystemScreenBrightness(lastKnownUserBrightness)
         }
     }
     private val brightnessResetRunnable = Runnable {
